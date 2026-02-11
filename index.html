@@ -38,6 +38,7 @@
             <nav class="w-full mt-4 flex flex-wrap gap-2 text-[10px] font-bold">
                 <button onclick="showTab('caisse')" class="tab-btn active-tab p-2 px-4 uppercase">Caisse</button>
                 <button onclick="showTab('ventes')" class="tab-btn p-2 px-4 uppercase text-green-400">Historique Ventes</button>
+                <button onclick="showTab('depenses')" class="tab-btn p-2 px-4 uppercase text-red-500">Dépenses</button>
                 <button onclick="showTab('carte')" class="tab-btn p-2 px-4 uppercase text-yellow-500">Carte du Bar</button>
                 <button onclick="showTab('stocks')" class="tab-btn p-2 px-4 uppercase">Inventaire</button>
                 <button onclick="showTab('equipe')" class="tab-btn p-2 px-4 uppercase">Staff</button>
@@ -74,7 +75,7 @@
                     <button onclick="clearCart()" class="w-full text-[9px] text-gray-600 mt-2 uppercase underline">Vider</button>
                 </div>
                 <div class="bg-black p-5 rounded border border-blue-900 shadow-2xl">
-                    <h3 class="text-xs text-blue-400 font-bold uppercase mb-4 tracking-widest border-b border-blue-900/30 pb-2">Chiffre d'affaires du Repère</h3>
+                    <h3 class="text-xs text-blue-400 font-bold uppercase mb-4 tracking-widest border-b border-blue-900/30 pb-2">Trésorerie du Repère</h3>
                     <div class="space-y-4">
                         <div class="flex justify-between items-end">
                             <div><p class="text-[9px] text-gray-500 uppercase font-bold">Hebdomadaire</p><p id="ca-weekly" class="text-3xl font-bold text-white leading-none">0$</p></div>
@@ -120,6 +121,27 @@
                         <tr><th class="p-3">Date & Heure</th><th>Vendeur</th><th>Articles</th><th class="text-right p-3">Total</th></tr>
                     </thead>
                     <tbody id="history-table"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="tab-depenses" class="hidden bg-dark-panel p-6 rounded">
+            <div class="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
+                <h2 class="text-2xl text-red-500 italic font-bold">Gestion des Dépenses</h2>
+                <button onclick="addExpensePrompt()" class="bg-red-900/40 border border-red-500 text-red-400 px-4 py-2 rounded text-xs font-bold uppercase hover:bg-red-600 hover:text-white transition">+ Nouvelle Dépense</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs uppercase">
+                    <thead class="bg-gray-800 text-gray-400 font-bold">
+                        <tr>
+                            <th class="p-3">Date</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th class="text-right p-3">Montant</th>
+                            <th class="text-right p-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expense-table"></tbody>
                 </table>
             </div>
         </section>
@@ -173,6 +195,7 @@
         let club = JSON.parse(localStorage.getItem('rp_club')) || [];
         let gallery = JSON.parse(localStorage.getItem('rp_gal')) || [];
         let salesHistory = JSON.parse(localStorage.getItem('rp_history')) || [];
+        let expensesHistory = JSON.parse(localStorage.getItem('rp_expenses')) || [];
         let money = JSON.parse(localStorage.getItem('rp_money')) || { weekly: 0, total: 0 };
         let taxConfig = JSON.parse(localStorage.getItem('rp_tax')) || { name: "Taxe", rate: 5 };
         let discountConfig = JSON.parse(localStorage.getItem('rp_disc')) || { rate: 10 };
@@ -188,6 +211,7 @@
             localStorage.setItem('rp_club', JSON.stringify(club)); 
             localStorage.setItem('rp_gal', JSON.stringify(gallery)); 
             localStorage.setItem('rp_history', JSON.stringify(salesHistory));
+            localStorage.setItem('rp_expenses', JSON.stringify(expensesHistory));
             localStorage.setItem('rp_money', JSON.stringify(money)); 
             localStorage.setItem('rp_tax', JSON.stringify(taxConfig)); 
             localStorage.setItem('rp_disc', JSON.stringify(discountConfig)); 
@@ -199,6 +223,44 @@
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab')); 
             if(window.event && window.event.target) window.event.target.classList.add('active-tab'); 
             render(); 
+        }
+
+        function addExpensePrompt() {
+            const type = prompt("Type de dépense (S pour Salaire, F pour Fournisseur) :");
+            if(!type) return;
+            const typeLabel = type.toUpperCase() === 'S' ? 'SALAIRE' : 'FOURNISSEUR';
+            const desc = prompt("Description (ex: Bières, Nom de l'employé...) :");
+            const amount = parseInt(prompt("Montant ($) :"));
+            if(!amount || isNaN(amount)) return;
+
+            const entry = {
+                id: Date.now(),
+                date: new Date().toLocaleDateString('fr-FR'),
+                type: typeLabel,
+                desc: desc || "Sans description",
+                amount: amount
+            };
+
+            expensesHistory.unshift(entry);
+            money.weekly -= amount;
+            money.total -= amount;
+            save();
+            render();
+        }
+
+        // Nouvelle fonction pour supprimer une dépense
+        function deleteExpense(id) {
+            if(confirm("Supprimer cette dépense ? Le montant sera ré-ajouté au solde de trésorerie.")) {
+                const index = expensesHistory.findIndex(e => e.id === id);
+                if (index !== -1) {
+                    const amount = expensesHistory[index].amount;
+                    money.weekly += amount;
+                    money.total += amount;
+                    expensesHistory.splice(index, 1);
+                    save();
+                    render();
+                }
+            }
         }
 
         function exportWeeklyCSV() {
@@ -285,10 +347,21 @@
             document.getElementById('period-total').innerText = fS.reduce((a,b)=>a+b.total,0)+"$";
             document.getElementById('history-table').innerHTML = fS.map(s => `<tr class="border-b border-gray-800 hover:bg-white/5 transition"><td class="p-3 text-gray-500 font-mono">${s.date}</td><td class="text-blue-400 font-bold">${s.seller}</td><td class="lowercase text-gray-400">${s.items}</td><td class="text-right p-3 font-bold text-green-500">${s.total}$</td></tr>`).join('');
 
+            // Rendu Tableau Dépenses AVEC BOUTON DELETE
+            document.getElementById('expense-table').innerHTML = expensesHistory.map(e => `
+                <tr class="border-b border-gray-800 hover:bg-white/5 transition">
+                    <td class="p-3 text-gray-500 font-mono">${e.date}</td>
+                    <td class="text-red-400 font-bold text-[10px]">${e.type}</td>
+                    <td class="text-gray-400 italic">${e.desc}</td>
+                    <td class="text-right p-3 font-bold text-red-500">-${e.amount}$</td>
+                    <td class="text-right p-3">
+                        <button onclick="deleteExpense(${e.id})" class="text-gray-600 hover:text-red-500 font-bold px-2">X</button>
+                    </td>
+                </tr>`).join('');
+
             document.getElementById('ca-weekly').innerText = money.weekly + "$";
             document.getElementById('ca-total').innerText = money.total + "$";
             
-            // TABLEAU INVENTAIRE AVEC BOUTON DELETE
             document.getElementById('inventory-table').innerHTML = products.map(p => `
                 <tr class="border-b border-gray-800 p-2">
                     <td><img src="${p.img}" class="w-8 h-8 rounded object-cover"></td>
@@ -370,11 +443,9 @@
             render(); 
         }
 
-        // FONCTION POUR SUPPRIMER UN PRODUIT
         function deleteProduct(id) {
             if(confirm("Supprimer ce produit de l'inventaire et de la carte ?")) {
                 products = products.filter(p => p.id !== id);
-                // On vide le panier au cas où le produit y était
                 cart = cart.filter(c => c.id !== id);
                 save();
                 render();
@@ -391,7 +462,7 @@
             let c = `LE REPÈRE\n\n${cart.map(i=> `${i.cartQty}x ${i.name.toUpperCase()}`).join('\n')}`; 
             if(t) c+=`\n+ TAXE`; 
             if(d) c+=`\n- REMISE`; 
-            c+=`\n\nTOTAL: ${tot}\n\nRide or Die.`; 
+            c+=`\n\nTOTAL: ${tot}\n\nMerci pour votre venue et à très bientôt au Repère.`; 
             document.getElementById('receipt-content').innerText = c; 
             document.getElementById('receipt-modal').classList.remove('hidden'); 
         }
@@ -404,5 +475,3 @@
     </script>
 </body>
 </html>
-
-
