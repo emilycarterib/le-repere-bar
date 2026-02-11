@@ -151,12 +151,7 @@
         <section id="tab-stocks" class="hidden grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div class="lg:col-span-3 bg-dark-panel p-6 rounded">
                 <div class="flex justify-between mb-6"><h2 class="text-2xl text-blue-400 italic font-bold">Gestion Stocks</h2><button onclick="editProductPrompt()" class="btn-action px-4 py-2 rounded text-xs">+ Nouveau Produit</button></div>
-                <table class="w-full text-left text-xs uppercase">
-                    <thead class="bg-blue-900/20 text-blue-400 font-bold">
-                        <tr><th class="p-3">Visuel</th><th>Produit</th><th>Prix</th><th class="text-center">Stock (cliquer)</th><th class="text-right p-3">Actions</th></tr>
-                    </thead>
-                    <tbody id="inventory-table"></tbody>
-                </table>
+                <table class="w-full text-left text-xs uppercase"><thead class="bg-blue-900/20 text-blue-400 font-bold"><tr><th class="p-3">Visuel</th><th>Produit</th><th>Prix</th><th class="text-center">Stock</th><th class="text-right p-3">Actions</th></tr></thead><tbody id="inventory-table"></tbody></table>
             </div>
             <div class="bg-dark-panel p-6 rounded border-t-2 border-blue-600 h-fit">
                 <h2 class="text-lg font-bold mb-4 italic uppercase">Ajustements</h2>
@@ -230,22 +225,211 @@
             render(); 
         }
 
-        // --- STOCKS ---
-        function updateStockPrompt(id) {
-            const p = products.find(x => x.id === id);
-            const newStock = prompt(`Nouveau stock pour ${p.name} :`, p.stock);
-            if (newStock !== null) {
-                const val = parseInt(newStock);
-                if (!isNaN(val) && val >= 0) {
-                    p.stock = val;
+        function addExpensePrompt() {
+            const type = prompt("Type de dépense (S pour Salaire, F pour Fournisseur) :");
+            if(!type) return;
+            const typeLabel = type.toUpperCase() === 'S' ? 'SALAIRE' : 'FOURNISSEUR';
+            const desc = prompt("Description (ex: Bières, Nom de l'employé...) :");
+            const amount = parseInt(prompt("Montant ($) :"));
+            if(!amount || isNaN(amount)) return;
+
+            const entry = {
+                id: Date.now(),
+                date: new Date().toLocaleDateString('fr-FR'),
+                type: typeLabel,
+                desc: desc || "Sans description",
+                amount: amount
+            };
+
+            expensesHistory.unshift(entry);
+            money.weekly -= amount;
+            money.total -= amount;
+            save();
+            render();
+        }
+
+        // Nouvelle fonction pour supprimer une dépense
+        function deleteExpense(id) {
+            if(confirm("Supprimer cette dépense ? Le montant sera ré-ajouté au solde de trésorerie.")) {
+                const index = expensesHistory.findIndex(e => e.id === id);
+                if (index !== -1) {
+                    const amount = expensesHistory[index].amount;
+                    money.weekly += amount;
+                    money.total += amount;
+                    expensesHistory.splice(index, 1);
                     save();
                     render();
-                } else {
-                    alert("Entrez un nombre valide.");
                 }
             }
         }
 
+        function exportWeeklyCSV() {
+            const now = new Date();
+            const day = now.getDay() || 7;
+            const monday = new Date(now);
+            monday.setDate(now.getDate() - day + 1);
+            monday.setHours(0,0,0,0);
+            const startISO = monday.toISOString().split('T')[0];
+            const weeklySales = salesHistory.filter(s => s.rawDate >= startISO);
+            if(weeklySales.length === 0) return alert("Aucune vente enregistrée cette semaine.");
+            let csvContent = "Date;Vendeur;Articles;Total\n";
+            weeklySales.forEach(s => {
+                const row = `${s.date};${s.seller};${s.items.replace(/,/g, '-')};${s.total}$`;
+                csvContent += row + "\n";
+            });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `compta_le_repere_semaine_${startISO}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function addToCart(id) { 
+            const p = products.find(x=>x.id===id); 
+            if(p.stock <= 0) return alert("Rupture !"); 
+            
+            const qty = parseInt(prompt(`Quantité pour ${p.name} ?`, "1"));
+            if(!qty || qty <= 0) return;
+            if(qty > p.stock) return alert("Pas assez de stock !");
+
+            cart.push({...p, cartQty: qty}); 
+            render(); 
+        }
+        
+        function clearCart() { cart = []; render(); }
+        
+        function validateSale() { 
+            if(!cart.length) return; 
+            const seller = prompt("Nom du vendeur :");
+            if(!seller || seller.trim() === "") return;
+            
+            const sub = cart.reduce((a, b) => a + (b.price * b.cartQty), 0); 
+            const tx = document.getElementById('tax-toggle').checked ? Math.round(sub*(taxConfig.rate/100)) : 0; 
+            const disc = document.getElementById('discount-toggle').checked ? Math.round(sub*(discountConfig.rate/100)) : 0; 
+            const tot = sub + tx - disc; 
+            
+            const itemsName = cart.map(i => i.cartQty > 1 ? `${i.name} (x${i.cartQty})` : i.name).join(', ');
+            
+            const entry = { date: new Date().toLocaleString('fr-FR'), rawDate: new Date().toISOString().split('T')[0], seller: seller.toUpperCase(), items: itemsName, total: tot };
+            salesHistory.unshift(entry);
+            
+            cart.forEach(i => products.find(x=>x.id===i.id).stock -= i.cartQty); 
+            money.weekly += tot; money.total += tot; cart = []; save(); render(); 
+        }
+
+        function updateTaxConfig() { taxConfig.name = document.getElementById('tax-name-input').value || "Taxe"; taxConfig.rate = parseInt(document.getElementById('tax-rate-input').value) || 0; save(); render(); }
+        function updateDiscountConfig() { discountConfig.rate = parseInt(document.getElementById('discount-rate-input').value) || 0; save(); render(); }
+
+        function render() {
+            document.getElementById('pos-grid').innerHTML = products.map(p => `<button onclick="addToCart(${p.id})" class="bg-black border border-gray-800 p-4 rounded hover:bg-blue-900 transition text-left"><div class="text-[9px] text-gray-500">STK: ${p.stock}</div><div class="font-bold text-xs uppercase">${p.name}</div><div class="text-blue-400 font-bold">${p.price}$</div></button>`).join('');
+            
+            const sub = cart.reduce((a,b)=>a+(b.price * b.cartQty),0);
+            const isT = document.getElementById('tax-toggle').checked;
+            const isD = document.getElementById('discount-toggle').checked;
+            const tA = isT && cart.length ? Math.round(sub*(taxConfig.rate/100)) : 0;
+            const dA = isD && cart.length ? Math.round(sub*(discountConfig.rate/100)) : 0;
+            
+            let h = cart.map(i => `<div class="flex justify-between text-xs font-bold uppercase"><span>${i.cartQty}x ${i.name}</span><span>${i.price * i.cartQty}$</span></div>`).join('');
+            if(tA) h += `<div class="text-[10px] text-blue-400 border-t border-gray-800 mt-2 pt-1 flex justify-between font-bold"><span>+ ${taxConfig.name}</span><span>${tA}$</span></div>`;
+            if(dA) h += `<div class="text-[10px] text-red-500 flex justify-between font-bold italic"><span>- REMISE</span><span>${dA}$</span></div>`;
+            document.getElementById('cart-items').innerHTML = h;
+            document.getElementById('cart-total').innerText = (sub+tA-dA)+"$";
+
+            const sF = document.getElementById('filter-start').value;
+            const eF = document.getElementById('filter-end').value;
+            let fS = salesHistory;
+            if(sF) fS = fS.filter(s => s.rawDate >= sF);
+            if(eF) fS = fS.filter(s => s.rawDate <= eF);
+            document.getElementById('period-total').innerText = fS.reduce((a,b)=>a+b.total,0)+"$";
+            document.getElementById('history-table').innerHTML = fS.map(s => `<tr class="border-b border-gray-800 hover:bg-white/5 transition"><td class="p-3 text-gray-500 font-mono">${s.date}</td><td class="text-blue-400 font-bold">${s.seller}</td><td class="lowercase text-gray-400">${s.items}</td><td class="text-right p-3 font-bold text-green-500">${s.total}$</td></tr>`).join('');
+
+            // Rendu Tableau Dépenses AVEC BOUTON DELETE
+            document.getElementById('expense-table').innerHTML = expensesHistory.map(e => `
+                <tr class="border-b border-gray-800 hover:bg-white/5 transition">
+                    <td class="p-3 text-gray-500 font-mono">${e.date}</td>
+                    <td class="text-red-400 font-bold text-[10px]">${e.type}</td>
+                    <td class="text-gray-400 italic">${e.desc}</td>
+                    <td class="text-right p-3 font-bold text-red-500">-${e.amount}$</td>
+                    <td class="text-right p-3">
+                        <button onclick="deleteExpense(${e.id})" class="text-gray-600 hover:text-red-500 font-bold px-2">X</button>
+                    </td>
+                </tr>`).join('');
+
+            document.getElementById('ca-weekly').innerText = money.weekly + "$";
+            document.getElementById('ca-total').innerText = money.total + "$";
+            
+            document.getElementById('inventory-table').innerHTML = products.map(p => `
+                <tr class="border-b border-gray-800 p-2">
+                    <td><img src="${p.img}" class="w-8 h-8 rounded object-cover"></td>
+                    <td class="font-bold">${p.name}</td>
+                    <td>${p.price}$</td>
+                    <td class="text-center cursor-pointer hover:text-blue-400 font-bold" onclick="updateStockPrompt(${p.id})">
+    ${p.stock}
+</td>
+                    <td class="text-right">
+                        <button onclick="editProductPrompt(${p.id})" class="text-blue-400 mr-2 uppercase font-bold text-[10px]">Edit</button>
+                        <button onclick="deleteProduct(${p.id})" class="text-red-600 font-bold text-[10px] uppercase hover:underline">X Supprimer</button>
+                    </td>
+                </tr>`).join('');
+            
+            document.getElementById('staff-list').innerHTML = staff.map(p => `<div class="bg-black p-3 border border-gray-800 rounded flex items-center justify-between"><div class="flex items-center gap-2"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-8 h-8 rounded-full object-cover zoomable"><div><div class="text-[10px] font-bold neon-blue">${p.name}</div><div class="text-[8px] text-gray-500">${p.role}</div></div></div><div class="flex gap-2"><button onclick="editPerson('staff', ${p.id})" class="text-blue-400 text-[10px]">Edit</button><button onclick="deletePerson('staff', ${p.id})" class="text-red-900 font-bold">X</button></div></div>`).join('');
+            
+            document.getElementById('club-list').innerHTML = club.map(p => `<div class="bg-gray-900 p-2 rounded text-center relative group">
+                <img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-full h-24 object-cover rounded mb-1 zoomable">
+                <div class="text-[9px] font-bold text-blue-400 uppercase">${p.name}</div>
+                <div class="text-[8px] text-gray-500 uppercase">${p.role}</div>
+                <div class="flex justify-center gap-3 mt-2 border-t border-gray-800 pt-1">
+                    <button onclick="editPerson('club', ${p.id})" class="text-[8px] text-blue-400 uppercase font-bold hover:underline">Modifier</button>
+                    <button onclick="deletePerson('club', ${p.id})" class="text-[8px] text-red-500 uppercase font-bold hover:underline">Supprimer</button>
+                </div>
+            </div>`).join('');
+            
+            document.getElementById('bar-menu-grid').innerHTML = products.map(p => `<div class="bg-dark-panel rounded overflow-hidden border border-gray-800"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-full h-32 object-cover grayscale hover:grayscale-0 transition zoomable"><div class="p-2 flex justify-between"><h3>${p.name}</h3><span class="text-blue-400">${p.price}$</span></div></div>`).join('');
+            document.getElementById('gallery-grid').innerHTML = gallery.map(p => `<div class="relative"><img src="${p.url}" onclick="zoomImg('${p.url}')" oncontextmenu="deletePhoto(${p.id});return false;" class="w-full h-32 object-cover rounded grayscale hover:grayscale-0 transition zoomable"></div>`).join('');
+        }
+
+        function zoomImg(src) { const m = document.getElementById('zoom-modal'); const i = m.querySelector('img'); i.src = src; m.classList.remove('hidden'); }
+        
+        function filterPreset(type) {
+            const now = new Date();
+            if(type === 'week') {
+                const day = now.getDay() || 7;
+                const mon = new Date(now); mon.setDate(now.getDate() - day + 1);
+                const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+                document.getElementById('filter-start').value = mon.toISOString().split('T')[0];
+                document.getElementById('filter-end').value = sun.toISOString().split('T')[0];
+            }
+            render();
+        }
+
+        function editPerson(type, id = null) {
+            const list = (type === 'staff') ? staff : club;
+            const person = id ? list.find(x => x.id === id) : { name: "", role: "", img: "" };
+            
+            const n = prompt("Nom :", person.name);
+            if (n === null) return;
+            const r = prompt("Rôle / Grade :", person.role);
+            if (r === null) return;
+            const im = prompt("URL Photo :", person.img);
+            if (im === null) return;
+
+            if (id) {
+                person.name = n;
+                person.role = r;
+                person.img = im || "https://i.pravatar.cc/150";
+            } else {
+                list.push({ id: Date.now(), name: n, role: r, img: im || "https://i.pravatar.cc/150" });
+            }
+            save();
+            render();
+        }
+
+        function deletePerson(t,id) { if(confirm("Supprimer définitivement ?")) { if(t==='staff') staff=staff.filter(x=>x.id!==id); else club=club.filter(x=>x.id!==id); save(); render(); }}
+        
         function editProductPrompt(id=null) { 
             const p = id ? products.find(x=>x.id===id) : {name:"",price:0,img:""}; 
             const n = prompt("Nom :", p.name); 
@@ -257,134 +441,53 @@
             } else {
                 products.push({id:Date.now(), name:n, price:pr, stock:0, img:im});
             }
-            save(); render(); 
+            save(); 
+            render(); 
         }
 
         function deleteProduct(id) {
-            if(confirm("Supprimer ce produit ?")) {
+            if(confirm("Supprimer ce produit de l'inventaire et de la carte ?")) {
                 products = products.filter(p => p.id !== id);
-                save(); render();
+                cart = cart.filter(c => c.id !== id);
+                save();
+                render();
             }
         }
-
-        // --- DEPENSES ---
-        function addExpensePrompt() {
-            const type = prompt("Type de dépense (S pour Salaire, F pour Fournisseur) :");
-            if(!type) return;
-            const typeLabel = type.toUpperCase() === 'S' ? 'SALAIRE' : 'FOURNISSEUR';
-            const desc = prompt("Description :");
-            const amount = parseInt(prompt("Montant ($) :"));
-            if(!amount || isNaN(amount)) return;
-
-            const entry = { id: Date.now(), date: new Date().toLocaleDateString('fr-FR'), type: typeLabel, desc: desc || "Sans description", amount: amount };
-            expensesHistory.unshift(entry);
-            money.weekly -= amount; money.total -= amount;
-            save(); render();
-        }
-
-        function deleteExpense(id) {
-            if(confirm("Supprimer cette dépense et rembourser la trésorerie ?")) {
-                const index = expensesHistory.findIndex(e => e.id === id);
-                if (index !== -1) {
-                    const amount = expensesHistory[index].amount;
-                    money.weekly += amount; money.total += amount;
-                    expensesHistory.splice(index, 1);
-                    save(); render();
-                }
-            }
-        }
-
-        // --- VENTES & CAISSE ---
-        function addToCart(id) { 
-            const p = products.find(x=>x.id===id); 
-            if(p.stock <= 0) return alert("Rupture !"); 
-            const qty = parseInt(prompt(`Quantité pour ${p.name} ?`, "1"));
-            if(!qty || qty <= 0 || qty > p.stock) return alert("Quantité invalide ou stock insuffisant !");
-            cart.push({...p, cartQty: qty}); render(); 
-        }
         
-        function clearCart() { cart = []; render(); }
-        
-        function validateSale() { 
-            if(!cart.length) return; 
-            const seller = prompt("Nom du vendeur :");
-            if(!seller) return;
-            const sub = cart.reduce((a, b) => a + (b.price * b.cartQty), 0); 
-            const tx = document.getElementById('tax-toggle').checked ? Math.round(sub*(taxConfig.rate/100)) : 0; 
-            const disc = document.getElementById('discount-toggle').checked ? Math.round(sub*(discountConfig.rate/100)) : 0; 
-            const tot = sub + tx - disc; 
-            const itemsName = cart.map(i => i.cartQty > 1 ? `${i.name} (x${i.cartQty})` : i.name).join(', ');
-            const entry = { date: new Date().toLocaleString('fr-FR'), rawDate: new Date().toISOString().split('T')[0], seller: seller.toUpperCase(), items: itemsName, total: tot };
-            salesHistory.unshift(entry);
-            cart.forEach(i => products.find(x=>x.id===i.id).stock -= i.cartQty); 
-            money.weekly += tot; money.total += tot; cart = []; save(); render(); 
-        }
-
-        // --- RENDER ---
-        function render() {
-            // Caisse
-            document.getElementById('pos-grid').innerHTML = products.map(p => `<button onclick="addToCart(${p.id})" class="bg-black border border-gray-800 p-4 rounded hover:bg-blue-900 transition text-left"><div class="text-[9px] text-gray-500">STK: ${p.stock}</div><div class="font-bold text-xs uppercase">${p.name}</div><div class="text-blue-400 font-bold">${p.price}$</div></button>`).join('');
-            
-            // Facture
-            const sub = cart.reduce((a,b)=>a+(b.price * b.cartQty),0);
-            const isT = document.getElementById('tax-toggle').checked;
-            const isD = document.getElementById('discount-toggle').checked;
-            const tA = isT && cart.length ? Math.round(sub*(taxConfig.rate/100)) : 0;
-            const dA = isD && cart.length ? Math.round(sub*(discountConfig.rate/100)) : 0;
-            document.getElementById('cart-items').innerHTML = cart.map(i => `<div class="flex justify-between text-xs font-bold uppercase"><span>${i.cartQty}x ${i.name}</span><span>${i.price * i.cartQty}$</span></div>`).join('') + (tA ? `<div class="text-[10px] text-blue-400 mt-2 pt-1 flex justify-between font-bold"><span>+ ${taxConfig.name}</span><span>${tA}$</span></div>` : "") + (dA ? `<div class="text-[10px] text-red-500 flex justify-between font-bold italic"><span>- REMISE</span><span>${dA}$</span></div>` : "");
-            document.getElementById('cart-total').innerText = (sub+tA-dA)+"$";
-
-            // Historique Ventes
-            const sF = document.getElementById('filter-start').value;
-            const eF = document.getElementById('filter-end').value;
-            let fS = salesHistory;
-            if(sF) fS = fS.filter(s => s.rawDate >= sF);
-            if(eF) fS = fS.filter(s => s.rawDate <= eF);
-            document.getElementById('period-total').innerText = fS.reduce((a,b)=>a+b.total,0)+"$";
-            document.getElementById('history-table').innerHTML = fS.map(s => `<tr class="border-b border-gray-800 hover:bg-white/5 transition"><td class="p-3 text-gray-500 font-mono">${s.date}</td><td class="text-blue-400 font-bold">${s.seller}</td><td class="lowercase text-gray-400">${s.items}</td><td class="text-right p-3 font-bold text-green-500">${s.total}$</td></tr>`).join('');
-
-            // Dépenses
-            document.getElementById('expense-table').innerHTML = expensesHistory.map(e => `<tr class="border-b border-gray-800"><td class="p-3 text-gray-500 font-mono">${e.date}</td><td class="text-red-400 font-bold text-[10px]">${e.type}</td><td class="text-gray-400 italic">${e.desc}</td><td class="text-right p-3 font-bold text-red-500">-${e.amount}$</td><td class="text-right p-3"><button onclick="deleteExpense(${e.id})" class="text-gray-600 hover:text-red-500 font-bold px-2">X</button></td></tr>`).join('');
-
-            // Trésorerie
-            document.getElementById('ca-weekly').innerText = money.weekly + "$";
-            document.getElementById('ca-total').innerText = money.total + "$";
-            
-            // Inventaire (Stock cliquable)
-            document.getElementById('inventory-table').innerHTML = products.map(p => `
-                <tr class="border-b border-gray-800 p-2">
-                    <td><img src="${p.img}" class="w-8 h-8 rounded object-cover"></td>
-                    <td class="font-bold">${p.name}</td>
-                    <td>${p.price}$</td>
-                    <td class="text-center cursor-pointer hover:text-blue-400 font-bold" onclick="updateStockPrompt(${p.id})">${p.stock}</td>
-                    <td class="text-right">
-                        <button onclick="editProductPrompt(${p.id})" class="text-blue-400 mr-2 uppercase font-bold text-[10px]">Edit</button>
-                        <button onclick="deleteProduct(${p.id})" class="text-red-600 font-bold text-[10px] uppercase">X</button>
-                    </td>
-                </tr>`).join('');
-            
-            // Staff, Club, Galerie, Carte
-            document.getElementById('staff-list').innerHTML = staff.map(p => `<div class="bg-black p-3 border border-gray-800 rounded flex items-center justify-between"><div class="flex items-center gap-2"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-8 h-8 rounded-full object-cover zoomable"><div><div class="text-[10px] font-bold neon-blue">${p.name}</div><div class="text-[8px] text-gray-500">${p.role}</div></div></div><div class="flex gap-2"><button onclick="editPerson('staff', ${p.id})" class="text-blue-400 text-[10px]">Edit</button><button onclick="deletePerson('staff', ${p.id})" class="text-red-900 font-bold">X</button></div></div>`).join('');
-            document.getElementById('club-list').innerHTML = club.map(p => `<div class="bg-gray-900 p-2 rounded text-center relative group"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-full h-24 object-cover rounded mb-1 zoomable"><div class="text-[9px] font-bold text-blue-400 uppercase">${p.name}</div><div class="text-[8px] text-gray-500 uppercase">${p.role}</div><div class="flex justify-center gap-3 mt-2 border-t border-gray-800 pt-1"><button onclick="editPerson('club', ${p.id})" class="text-[8px] text-blue-400 uppercase font-bold hover:underline">Modifier</button><button onclick="deletePerson('club', ${p.id})" class="text-[8px] text-red-500 uppercase font-bold hover:underline">Supprimer</button></div></div>`).join('');
-            document.getElementById('bar-menu-grid').innerHTML = products.map(p => `<div class="bg-dark-panel rounded overflow-hidden border border-gray-800"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-full h-32 object-cover grayscale hover:grayscale-0 transition zoomable"><div class="p-2 flex justify-between"><h3>${p.name}</h3><span class="text-blue-400">${p.price}$</span></div></div>`).join('');
-            document.getElementById('gallery-grid').innerHTML = gallery.map(p => `<div class="relative"><img src="${p.url}" onclick="zoomImg('${p.url}')" oncontextmenu="deletePhoto(${p.id});return false;" class="w-full h-32 object-cover rounded grayscale hover:grayscale-0 transition zoomable"></div>`).join('');
-        }
-
-        // --- AUTRES FONCTIONS ---
-        function zoomImg(src) { const m = document.getElementById('zoom-modal'); const i = m.querySelector('img'); i.src = src; m.classList.remove('hidden'); }
-        function filterPreset(type) { if(type === 'week') { const now = new Date(); const day = now.getDay() || 7; const mon = new Date(now); mon.setDate(now.getDate() - day + 1); document.getElementById('filter-start').value = mon.toISOString().split('T')[0]; document.getElementById('filter-end').value = new Date().toISOString().split('T')[0]; } render(); }
-        function editPerson(type, id = null) { const list = (type === 'staff') ? staff : club; const person = id ? list.find(x => x.id === id) : { name: "", role: "", img: "" }; const n = prompt("Nom :", person.name); const r = prompt("Rôle :", person.role); const im = prompt("URL Photo :", person.img); if (id) { person.name = n; person.role = r; person.img = im || "https://i.pravatar.cc/150"; } else { list.push({ id: Date.now(), name: n, role: r, img: im || "https://i.pravatar.cc/150" }); } save(); render(); }
-        function deletePerson(t,id) { if(confirm("Supprimer ?")) { if(t==='staff') staff=staff.filter(x=>x.id!==id); else club=club.filter(x=>x.id!==id); save(); render(); }}
-        function updateTaxConfig() { taxConfig.name = document.getElementById('tax-name-input').value || "Taxe"; taxConfig.rate = parseInt(document.getElementById('tax-rate-input').value) || 0; save(); render(); }
-        function updateDiscountConfig() { discountConfig.rate = parseInt(document.getElementById('discount-rate-input').value) || 0; save(); render(); }
         function resetMoney(t) { if(confirm("Reset ?")) { money[t]=0; save(); render(); } }
         function clearHistory() { if(confirm("Vider l'historique ?")) { salesHistory = []; save(); render(); } }
-        function generateReceipt() { const tot = document.getElementById('cart-total').innerText; let c = `LE REPÈRE\n\n${cart.map(i=> `${i.cartQty}x ${i.name.toUpperCase()}`).join('\n')}\n\nTOTAL: ${tot}\n\nRide or Die.`; document.getElementById('receipt-content').innerText = c; document.getElementById('receipt-modal').classList.remove('hidden'); }
+        
+        function generateReceipt() { 
+            const tot = document.getElementById('cart-total').innerText; 
+            const t = document.getElementById('tax-toggle').checked; 
+            const d = document.getElementById('discount-toggle').checked; 
+            let c = `LE REPÈRE\n\n${cart.map(i=> `${i.cartQty}x ${i.name.toUpperCase()}`).join('\n')}`; 
+            if(t) c+=`\n+ TAXE`; 
+            if(d) c+=`\n- REMISE`; 
+            c+=`\n\nTOTAL: ${tot}\n\nRide or Die.`; 
+            document.getElementById('receipt-content').innerText = c; 
+            document.getElementById('receipt-modal').classList.remove('hidden'); 
+        }
         function copyReceipt() { navigator.clipboard.writeText(document.getElementById('receipt-content').innerText); alert("Copié !"); }
-        function addPhotoToGallery() { const url = prompt("URL photo :"); if(url) { gallery.push({id:Date.now(), url:url}); save(); render(); } }
-        function deletePhoto(id) { if(confirm("Supprimer ?")) { gallery = gallery.filter(p => p.id !== id); save(); render(); } }
-        function exportWeeklyCSV() { /* ... code export identique ... */ }
-
+        
+        function addPhotoToGallery() { const url = prompt("URL de la photo :"); if(url) { gallery.push({id:Date.now(), url:url}); save(); render(); } }
+        function deletePhoto(id) { if(confirm("Supprimer cette photo de la galerie ?")) { gallery = gallery.filter(p => p.id !== id); save(); render(); } }
+       
+        function updateStockPrompt(id) {
+    const p = products.find(x => x.id === id);
+    const newStock = prompt(`Nouveau stock pour ${p.name} :`, p.stock);
+    
+    if (newStock !== null) {
+        const val = parseInt(newStock);
+        if (!isNaN(val) && val >= 0) {
+            p.stock = val;
+            save();
+            render();
+        } else {
+            alert("Veuillez entrer un nombre valide.");
+        }
+    }
+}
         render();
     </script>
 </body>
