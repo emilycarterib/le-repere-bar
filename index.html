@@ -31,8 +31,8 @@
             </div>
             
             <div class="flex gap-4 items-center bg-black/40 p-2 rounded border border-gray-800">
-                <img src="https://i.ibb.co/5gRNV2dF/logo-Le-rep-re.png" alt="Logo Bar" class="h-12 w-12 object-contain border border-gray-700 p-1 rounded bg-black">
-                <img src="https://i.ibb.co/v4tXCt5J/ib-1.png" alt="Logo Asso" class="h-12 w-12 object-contain border border-gray-700 p-1 rounded bg-black">
+                <img src="URL_LOGO_BAR" alt="Logo Bar" class="h-12 w-12 object-contain border border-gray-700 p-1 rounded bg-black">
+                <img src="URL_LOGO_ASSO" alt="Logo Asso" class="h-12 w-12 object-contain border border-gray-700 p-1 rounded bg-black">
             </div>
 
             <nav class="w-full mt-4 flex flex-wrap gap-2 text-[10px] font-bold">
@@ -226,20 +226,40 @@
             document.body.removeChild(link);
         }
 
-        function addToCart(id) { const p = products.find(x=>x.id===id); if(p.stock <= 0) return alert("Rupture !"); cart.push({...p}); render(); }
+        function addToCart(id) { 
+            const p = products.find(x=>x.id===id); 
+            if(p.stock <= 0) return alert("Rupture !"); 
+            
+            const qty = parseInt(prompt(`Quantité pour ${p.name} ?`, "1"));
+            if(!qty || qty <= 0) return;
+            if(qty > p.stock) return alert("Pas assez de stock !");
+
+            // On ajoute l'objet avec sa quantité. Le prix stocké ici est le prix unitaire.
+            cart.push({...p, cartQty: qty}); 
+            render(); 
+        }
+        
         function clearCart() { cart = []; render(); }
         
         function validateSale() { 
             if(!cart.length) return; 
             const seller = prompt("Nom du vendeur :");
             if(!seller || seller.trim() === "") return;
-            const sub = cart.reduce((a, b) => a + b.price, 0); 
+            
+            // Calcul avec quantité : unitaire * quantité
+            const sub = cart.reduce((a, b) => a + (b.price * b.cartQty), 0); 
             const tx = document.getElementById('tax-toggle').checked ? Math.round(sub*(taxConfig.rate/100)) : 0; 
             const disc = document.getElementById('discount-toggle').checked ? Math.round(sub*(discountConfig.rate/100)) : 0; 
             const tot = sub + tx - disc; 
-            const entry = { date: new Date().toLocaleString('fr-FR'), rawDate: new Date().toISOString().split('T')[0], seller: seller.toUpperCase(), items: cart.map(i => i.name).join(', '), total: tot };
+            
+            // Formatage du nom pour l'historique : "Nom (x2)"
+            const itemsName = cart.map(i => i.cartQty > 1 ? `${i.name} (x${i.cartQty})` : i.name).join(', ');
+            
+            const entry = { date: new Date().toLocaleString('fr-FR'), rawDate: new Date().toISOString().split('T')[0], seller: seller.toUpperCase(), items: itemsName, total: tot };
             salesHistory.unshift(entry);
-            cart.forEach(i => products.find(x=>x.id===i.id).stock--); 
+            
+            // Déduction du stock correcte
+            cart.forEach(i => products.find(x=>x.id===i.id).stock -= i.cartQty); 
             money.weekly += tot; money.total += tot; cart = []; save(); render(); 
         }
 
@@ -249,12 +269,13 @@
         function render() {
             document.getElementById('pos-grid').innerHTML = products.map(p => `<button onclick="addToCart(${p.id})" class="bg-black border border-gray-800 p-4 rounded hover:bg-blue-900 transition text-left"><div class="text-[9px] text-gray-500">STK: ${p.stock}</div><div class="font-bold text-xs uppercase">${p.name}</div><div class="text-blue-400 font-bold">${p.price}$</div></button>`).join('');
             
-            const sub = cart.reduce((a,b)=>a+b.price,0);
+            const sub = cart.reduce((a,b)=>a+(b.price * b.cartQty),0);
             const isT = document.getElementById('tax-toggle').checked;
             const isD = document.getElementById('discount-toggle').checked;
             const tA = isT && cart.length ? Math.round(sub*(taxConfig.rate/100)) : 0;
             const dA = isD && cart.length ? Math.round(sub*(discountConfig.rate/100)) : 0;
-            let h = cart.map(i => `<div class="flex justify-between text-xs font-bold uppercase"><span>${i.name}</span><span>${i.price}$</span></div>`).join('');
+            
+            let h = cart.map(i => `<div class="flex justify-between text-xs font-bold uppercase"><span>${i.cartQty}x ${i.name}</span><span>${i.price * i.cartQty}$</span></div>`).join('');
             if(tA) h += `<div class="text-[10px] text-blue-400 border-t border-gray-800 mt-2 pt-1 flex justify-between font-bold"><span>+ ${taxConfig.name}</span><span>${tA}$</span></div>`;
             if(dA) h += `<div class="text-[10px] text-red-500 flex justify-between font-bold italic"><span>- REMISE</span><span>${dA}$</span></div>`;
             document.getElementById('cart-items').innerHTML = h;
@@ -331,7 +352,17 @@
         function resetMoney(t) { if(confirm("Reset ?")) { money[t]=0; save(); render(); } }
         function clearHistory() { if(confirm("Vider l'historique ?")) { salesHistory = []; save(); render(); } }
         
-        function generateReceipt() { const tot = document.getElementById('cart-total').innerText; const t = document.getElementById('tax-toggle').checked; const d = document.getElementById('discount-toggle').checked; let c = `LE REPÈRE\n\n${cart.map(i=>i.name.toUpperCase()).join('\n')}`; if(t) c+=`\n+ TAXE`; if(d) c+=`\n- REMISE`; c+=`\n\nTOTAL: ${tot}\n\nRide or Die.`; document.getElementById('receipt-content').innerText = c; document.getElementById('receipt-modal').classList.remove('hidden'); }
+        function generateReceipt() { 
+            const tot = document.getElementById('cart-total').innerText; 
+            const t = document.getElementById('tax-toggle').checked; 
+            const d = document.getElementById('discount-toggle').checked; 
+            let c = `LE REPÈRE\n\n${cart.map(i=> `${i.cartQty}x ${i.name.toUpperCase()}`).join('\n')}`; 
+            if(t) c+=`\n+ TAXE`; 
+            if(d) c+=`\n- REMISE`; 
+            c+=`\n\nTOTAL: ${tot}\n\nRide or Die.`; 
+            document.getElementById('receipt-content').innerText = c; 
+            document.getElementById('receipt-modal').classList.remove('hidden'); 
+        }
         function copyReceipt() { navigator.clipboard.writeText(document.getElementById('receipt-content').innerText); alert("Copié !"); }
         
         function addPhotoToGallery() { const url = prompt("URL de la photo :"); if(url) { gallery.push({id:Date.now(), url:url}); save(); render(); } }
