@@ -31,7 +31,7 @@
             </div>
             
             <div class="flex gap-4 items-center bg-black/40 p-2 rounded border border-gray-800">
-                <img src="https://i.ibb.co/ccBRbrYK/le-repere-logo.png" alt="Logo Bar" class="h-12 w-12 object-contain border border-gray-700 p-1 rounded bg-black">
+                <img src="https://i.ibb.co/5gRNV2dF/logo-Le-rep-re.png" alt="Logo Bar" class="h-12 w-12 object-contain border border-gray-700 p-1 rounded bg-black">
                 <img src="https://i.ibb.co/v4tXCt5J/ib-1.png" alt="Logo Asso" class="h-12 w-12 object-contain border border-gray-700 p-1 rounded bg-black">
             </div>
 
@@ -125,6 +125,7 @@
         </section>
 
         <section id="tab-carte" class="hidden"><h2 class="text-3xl mb-6 text-blue-400 italic font-bold">Menu du Bar</h2><div id="bar-menu-grid" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"></div></section>
+        
         <section id="tab-stocks" class="hidden grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div class="lg:col-span-3 bg-dark-panel p-6 rounded">
                 <div class="flex justify-between mb-6"><h2 class="text-2xl text-blue-400 italic font-bold">Gestion Stocks</h2><button onclick="editProductPrompt()" class="btn-action px-4 py-2 rounded text-xs">+ Nouveau Produit</button></div>
@@ -145,8 +146,11 @@
                 </div>
             </div>
         </section>
+
         <section id="tab-equipe" class="hidden bg-dark-panel p-6 rounded"><div class="flex justify-between mb-6"><h2 class="text-2xl text-blue-400 italic">Staff</h2><button onclick="editPerson('staff')" class="btn-action px-4 py-2 rounded text-xs uppercase">Embaucher</button></div><div id="staff-list" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div></section>
+        
         <section id="tab-membres" class="hidden bg-dark-panel p-6 rounded"><div class="flex justify-between mb-6"><h2 class="text-2xl text-blue-400 italic">Iron Brotherhood</h2><button onclick="editPerson('club')" class="btn-action px-4 py-2 rounded text-xs uppercase">Nouveau Frère</button></div><div id="club-list" class="grid grid-cols-1 md:grid-cols-4 gap-4"></div></section>
+        
         <section id="tab-galerie" class="hidden bg-dark-panel p-6 rounded"><div class="flex justify-between mb-6"><h2 class="text-2xl text-blue-400 italic">Galerie</h2><button onclick="addPhotoToGallery()" class="btn-action px-4 py-2 rounded text-xs uppercase">+ Ajouter une Photo</button></div><div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"></div></section>
     </div>
 
@@ -189,7 +193,6 @@
             localStorage.setItem('rp_disc', JSON.stringify(discountConfig)); 
         }
 
-        // --- NAVIGATION ---
         function showTab(name) { 
             document.querySelectorAll('section').forEach(s => s.classList.add('hidden')); 
             document.getElementById('tab-' + name).classList.remove('hidden'); 
@@ -198,7 +201,6 @@
             render(); 
         }
 
-        // --- EXPORT CSV ---
         function exportWeeklyCSV() {
             const now = new Date();
             const day = now.getDay() || 7;
@@ -224,7 +226,6 @@
             document.body.removeChild(link);
         }
 
-        // --- CAISSE ---
         function addToCart(id) { const p = products.find(x=>x.id===id); if(p.stock <= 0) return alert("Rupture !"); cart.push({...p}); render(); }
         function clearCart() { cart = []; render(); }
         
@@ -245,7 +246,6 @@
         function updateTaxConfig() { taxConfig.name = document.getElementById('tax-name-input').value || "Taxe"; taxConfig.rate = parseInt(document.getElementById('tax-rate-input').value) || 0; save(); render(); }
         function updateDiscountConfig() { discountConfig.rate = parseInt(document.getElementById('discount-rate-input').value) || 0; save(); render(); }
 
-        // --- RENDER ---
         function render() {
             document.getElementById('pos-grid').innerHTML = products.map(p => `<button onclick="addToCart(${p.id})" class="bg-black border border-gray-800 p-4 rounded hover:bg-blue-900 transition text-left"><div class="text-[9px] text-gray-500">STK: ${p.stock}</div><div class="font-bold text-xs uppercase">${p.name}</div><div class="text-blue-400 font-bold">${p.price}$</div></button>`).join('');
             
@@ -272,15 +272,24 @@
             document.getElementById('ca-total').innerText = money.total + "$";
             document.getElementById('inventory-table').innerHTML = products.map(p => `<tr class="border-b border-gray-800 p-2"><td><img src="${p.img}" class="w-8 h-8 rounded object-cover"></td><td class="font-bold">${p.name}</td><td>${p.price}$</td><td class="text-center">${p.stock}</td><td class="text-right"><button onclick="editProductPrompt(${p.id})" class="text-blue-400 mr-2">Edit</button></td></tr>`).join('');
             
-            // ZOOMABLE SECTIONS
-            document.getElementById('staff-list').innerHTML = staff.map(p => `<div class="bg-black p-3 border border-gray-800 rounded flex items-center justify-between"><div class="flex items-center gap-2"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-8 h-8 rounded-full object-cover zoomable"><div><div class="text-[10px] font-bold neon-blue">${p.name}</div><div class="text-[8px] text-gray-500">${p.role}</div></div></div><button onclick="deletePerson('staff', ${p.id})" class="text-red-900">X</button></div>`).join('');
-            document.getElementById('club-list').innerHTML = club.map(p => `<div class="bg-gray-900 p-2 rounded text-center"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-full h-20 object-cover rounded mb-1 zoomable"><div class="text-[9px] font-bold text-blue-400">${p.name}</div><div class="text-[8px] text-gray-500">${p.role}</div></div>`).join('');
+            document.getElementById('staff-list').innerHTML = staff.map(p => `<div class="bg-black p-3 border border-gray-800 rounded flex items-center justify-between"><div class="flex items-center gap-2"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-8 h-8 rounded-full object-cover zoomable"><div><div class="text-[10px] font-bold neon-blue">${p.name}</div><div class="text-[8px] text-gray-500">${p.role}</div></div></div><div class="flex gap-2"><button onclick="editPerson('staff', ${p.id})" class="text-blue-400 text-[10px]">Edit</button><button onclick="deletePerson('staff', ${p.id})" class="text-red-900 font-bold">X</button></div></div>`).join('');
+            
+            document.getElementById('club-list').innerHTML = club.map(p => `<div class="bg-gray-900 p-2 rounded text-center relative group">
+                <img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-full h-24 object-cover rounded mb-1 zoomable">
+                <div class="text-[9px] font-bold text-blue-400 uppercase">${p.name}</div>
+                <div class="text-[8px] text-gray-500 uppercase">${p.role}</div>
+                <div class="flex justify-center gap-3 mt-2 border-t border-gray-800 pt-1">
+                    <button onclick="editPerson('club', ${p.id})" class="text-[8px] text-blue-400 uppercase font-bold hover:underline">Modifier</button>
+                    <button onclick="deletePerson('club', ${p.id})" class="text-[8px] text-red-500 uppercase font-bold hover:underline">Supprimer</button>
+                </div>
+            </div>`).join('');
+            
             document.getElementById('bar-menu-grid').innerHTML = products.map(p => `<div class="bg-dark-panel rounded overflow-hidden border border-gray-800"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-full h-32 object-cover grayscale hover:grayscale-0 transition zoomable"><div class="p-2 flex justify-between"><h3>${p.name}</h3><span class="text-blue-400">${p.price}$</span></div></div>`).join('');
             document.getElementById('gallery-grid').innerHTML = gallery.map(p => `<div class="relative"><img src="${p.url}" onclick="zoomImg('${p.url}')" oncontextmenu="deletePhoto(${p.id});return false;" class="w-full h-32 object-cover rounded grayscale hover:grayscale-0 transition zoomable"></div>`).join('');
         }
 
-        // --- TOOLS ---
         function zoomImg(src) { const m = document.getElementById('zoom-modal'); const i = m.querySelector('img'); i.src = src; m.classList.remove('hidden'); }
+        
         function filterPreset(type) {
             const now = new Date();
             if(type === 'week') {
@@ -292,15 +301,39 @@
             }
             render();
         }
-        function editPerson(t) { const n = prompt("Nom :"); if(!n) return; const r = prompt("Rôle :"); const im = prompt("URL Photo :"); (t==='staff'?staff:club).push({id:Date.now(), name:n, role:r, img:im||"https://i.pravatar.cc/150"}); save(); render(); }
-        function deletePerson(t,id) { if(confirm("Supprimer ?")) { if(t==='staff') staff=staff.filter(x=>x.id!==id); else club=club.filter(x=>x.id!==id); save(); render(); }}
+
+        function editPerson(type, id = null) {
+            const list = (type === 'staff') ? staff : club;
+            const person = id ? list.find(x => x.id === id) : { name: "", role: "", img: "" };
+            
+            const n = prompt("Nom :", person.name);
+            if (n === null) return;
+            const r = prompt("Rôle / Grade :", person.role);
+            if (r === null) return;
+            const im = prompt("URL Photo :", person.img);
+            if (im === null) return;
+
+            if (id) {
+                person.name = n;
+                person.role = r;
+                person.img = im || "https://i.pravatar.cc/150";
+            } else {
+                list.push({ id: Date.now(), name: n, role: r, img: im || "https://i.pravatar.cc/150" });
+            }
+            save();
+            render();
+        }
+
+        function deletePerson(t,id) { if(confirm("Supprimer définitivement ?")) { if(t==='staff') staff=staff.filter(x=>x.id!==id); else club=club.filter(x=>x.id!==id); save(); render(); }}
+        
         function editProductPrompt(id=null) { const p = id ? products.find(x=>x.id===id) : {name:"",price:0,img:""}; const n = prompt("Nom :", p.name); if(!n) return; const pr = parseInt(prompt("Prix :", p.price))||0; const im = prompt("URL :", p.img); if(id) Object.assign(products.find(x=>x.id===id), {name:n, price:pr, img:im}); else products.push({id:Date.now(), name:n, price:pr, stock:0, img:im}); save(); render(); }
+        
         function resetMoney(t) { if(confirm("Reset ?")) { money[t]=0; save(); render(); } }
         function clearHistory() { if(confirm("Vider l'historique ?")) { salesHistory = []; save(); render(); } }
+        
         function generateReceipt() { const tot = document.getElementById('cart-total').innerText; const t = document.getElementById('tax-toggle').checked; const d = document.getElementById('discount-toggle').checked; let c = `LE REPÈRE\n\n${cart.map(i=>i.name.toUpperCase()).join('\n')}`; if(t) c+=`\n+ TAXE`; if(d) c+=`\n- REMISE`; c+=`\n\nTOTAL: ${tot}\n\nRide or Die.`; document.getElementById('receipt-content').innerText = c; document.getElementById('receipt-modal').classList.remove('hidden'); }
         function copyReceipt() { navigator.clipboard.writeText(document.getElementById('receipt-content').innerText); alert("Copié !"); }
         
-        // GALERIE SPECIFIQUE
         function addPhotoToGallery() { const url = prompt("URL de la photo :"); if(url) { gallery.push({id:Date.now(), url:url}); save(); render(); } }
         function deletePhoto(id) { if(confirm("Supprimer cette photo de la galerie ?")) { gallery = gallery.filter(p => p.id !== id); save(); render(); } }
 
