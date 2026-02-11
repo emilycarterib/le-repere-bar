@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Repère - Compta</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Roboto', sans-serif; background-color: #050505; color: #e0e0e0; }
+        h1, h2, h3 { font-family: 'Oswald', sans-serif; text-transform: uppercase; }
+        .neon-blue { color: #00d2ff; text-shadow: 0 0 10px rgba(0, 210, 255, 0.7); }
+        .bg-dark-panel { background-color: #121212; border: 1px solid #1f2937; }
+        .btn-action { background: linear-gradient(135deg, #004e92, #000428); transition: 0.2s; border: 1px solid #00d2ff; font-weight: bold; text-transform: uppercase; }
+        .btn-action:hover { box-shadow: 0 0 15px #00d2ff; transform: translateY(-2px); }
+        .active-tab { border-bottom: 3px solid #00d2ff; color: #00d2ff; }
+        .hidden { display: none !important; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+        .zoomable { cursor: zoom-in; transition: opacity 0.3s; }
+        .zoomable:hover { opacity: 0.8; }
+    </style>
+</head>
+<body class="p-4">
+
+    <div id="main-content" class="max-w-7xl mx-auto">
+        <header class="flex flex-wrap justify-between items-start mb-6 border-b border-gray-800 pb-4">
+            <div>
+                <h1 class="text-4xl neon-blue italic">Le Repère</h1>
+                <p class="text-[10px] uppercase tracking-[0.3em] text-gray-500">Iron Brotherhood Management</p>
+            </div>
+            
+            <div class="flex gap-4 items-center bg-black/40 p-2 rounded border border-gray-800">
+                <img src="https://i.ibb.co/ccBRbrYK/le-repere-logo.png" alt="Logo Bar" class="h-12 w-12 object-contain border border-gray-700 p-1 rounded bg-black">
+                <img src="https://i.ibb.co/v4tXCt5J/ib-1.png" alt="Logo Asso" class="h-12 w-12 object-contain border border-gray-700 p-1 rounded bg-black">
+            </div>
+
+            <nav class="w-full mt-4 flex flex-wrap gap-2 text-[10px] font-bold">
+                <button onclick="showTab('caisse')" class="tab-btn active-tab p-2 px-4 uppercase">Caisse</button>
+                <button onclick="showTab('ventes')" class="tab-btn p-2 px-4 uppercase text-green-400">Historique Ventes</button>
+                <button onclick="showTab('carte')" class="tab-btn p-2 px-4 uppercase text-yellow-500">Carte du Bar</button>
+                <button onclick="showTab('stocks')" class="tab-btn p-2 px-4 uppercase">Inventaire</button>
+                <button onclick="showTab('equipe')" class="tab-btn p-2 px-4 uppercase">Staff</button>
+                <button onclick="showTab('membres')" class="tab-btn p-2 px-4 uppercase">Iron Brotherhood</button>
+                <button onclick="showTab('galerie')" class="tab-btn p-2 px-4 uppercase">Galerie</button>
+                <button onclick="location.reload()" class="bg-blue-900/20 text-blue-400 px-4 py-2 rounded border border-blue-900 ml-4 hover:bg-blue-600 hover:text-white transition uppercase">Refresh</button>
+            </nav>
+        </header>
+
+        <section id="tab-caisse" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-dark-panel p-6 rounded shadow-lg">
+                <h2 class="text-2xl mb-4 text-blue-400 italic font-bold">Prendre Commande</h2>
+                <div id="pos-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+            </div>
+            <div class="flex flex-col gap-4">
+                <div class="bg-dark-panel p-6 rounded border-l-4 border-blue-600 shadow-xl">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold italic uppercase text-gray-400">Facture</h2>
+                        <div class="flex flex-col gap-1 items-end">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <span class="text-[9px] uppercase text-gray-500 font-bold">Taxe</span>
+                                <input type="checkbox" id="tax-toggle" onchange="render()" class="w-3 h-3 accent-blue-500">
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <span class="text-[9px] uppercase text-gray-500 font-bold">Remise</span>
+                                <input type="checkbox" id="discount-toggle" onchange="render()" class="w-3 h-3 accent-red-500">
+                            </label>
+                        </div>
+                    </div>
+                    <div id="cart-items" class="min-h-[150px] space-y-2 border-b border-gray-800 mb-4"></div>
+                    <div class="flex justify-between text-4xl font-bold mb-6 font-sans"><span class="italic">TOTAL</span><span id="cart-total" class="text-green-500">0$</span></div>
+                    <button onclick="validateSale()" class="w-full btn-action py-4 rounded text-xl mb-2">Encaisser</button>
+                    <button onclick="generateReceipt()" class="w-full text-xs text-blue-400 font-bold uppercase hover:underline">Ticket Texte</button>
+                    <button onclick="clearCart()" class="w-full text-[9px] text-gray-600 mt-2 uppercase underline">Vider</button>
+                </div>
+                <div class="bg-black p-5 rounded border border-blue-900 shadow-2xl">
+                    <h3 class="text-xs text-blue-400 font-bold uppercase mb-4 tracking-widest border-b border-blue-900/30 pb-2">Trésorerie Club</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-end">
+                            <div><p class="text-[9px] text-gray-500 uppercase font-bold">Hebdomadaire</p><p id="ca-weekly" class="text-3xl font-bold text-white leading-none">0$</p></div>
+                            <button onclick="resetMoney('weekly')" class="text-[8px] bg-red-900/20 text-red-500 border border-red-900 px-2 py-1 rounded hover:bg-red-600 hover:text-white transition uppercase font-bold">Reset Hebdo</button>
+                        </div>
+                        <div class="flex justify-between items-end">
+                            <div><p class="text-[9px] text-gray-500 uppercase font-bold">Total Cumulé</p><p id="ca-total" class="text-3xl font-bold neon-blue leading-none">0$</p></div>
+                            <button onclick="resetMoney('total')" class="text-[8px] bg-red-900/20 text-red-500 border border-red-900 px-2 py-1 rounded hover:bg-red-600 hover:text-white transition uppercase font-bold">Reset Total</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-ventes" class="hidden bg-dark-panel p-6 rounded">
+            <div class="flex flex-wrap justify-between items-center mb-6 gap-4 border-b border-gray-800 pb-4">
+                <div>
+                    <h2 class="text-2xl text-green-400 italic font-bold leading-none">Journal des Ventes</h2>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="filterPreset('week')" class="text-[8px] bg-blue-900/30 border border-blue-500/50 px-2 py-1 rounded uppercase hover:bg-blue-500 transition">Cette Semaine</button>
+                        <button onclick="exportWeeklyCSV()" class="text-[8px] bg-green-900/30 border border-green-500 text-green-400 px-2 py-1 rounded uppercase hover:bg-green-600 hover:text-white transition font-bold">Exporter la Semaine (.CSV)</button>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 bg-black/50 p-2 rounded border border-gray-800">
+                    <div class="flex items-center gap-2">
+                        <label class="text-[8px] uppercase text-gray-500 font-bold">Du</label>
+                        <input type="date" id="filter-start" onchange="render()" class="bg-gray-900 border border-gray-700 text-[10px] text-white p-1 rounded outline-none">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-[8px] uppercase text-gray-500 font-bold">Au</label>
+                        <input type="date" id="filter-end" onchange="render()" class="bg-gray-900 border border-gray-700 text-[10px] text-white p-1 rounded outline-none">
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] text-gray-500 uppercase font-bold">Total période</p>
+                    <p id="period-total" class="text-2xl font-bold text-green-500 leading-none">0$</p>
+                </div>
+                <button onclick="clearHistory()" class="text-red-500 text-[10px] uppercase border border-red-900 px-2 py-1 rounded hover:bg-red-900/20">Effacer Historique</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs uppercase">
+                    <thead class="bg-gray-800 text-gray-400 font-bold">
+                        <tr><th class="p-3">Date & Heure</th><th>Vendeur</th><th>Articles</th><th class="text-right p-3">Total</th></tr>
+                    </thead>
+                    <tbody id="history-table"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="tab-carte" class="hidden"><h2 class="text-3xl mb-6 text-blue-400 italic font-bold">Menu du Bar</h2><div id="bar-menu-grid" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"></div></section>
+        <section id="tab-stocks" class="hidden grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div class="lg:col-span-3 bg-dark-panel p-6 rounded">
+                <div class="flex justify-between mb-6"><h2 class="text-2xl text-blue-400 italic font-bold">Gestion Stocks</h2><button onclick="editProductPrompt()" class="btn-action px-4 py-2 rounded text-xs">+ Nouveau Produit</button></div>
+                <table class="w-full text-left text-xs uppercase"><thead class="bg-blue-900/20 text-blue-400 font-bold"><tr><th class="p-3">Visuel</th><th>Produit</th><th>Prix</th><th class="text-center">Stock</th><th class="text-right p-3">Actions</th></tr></thead><tbody id="inventory-table"></tbody></table>
+            </div>
+            <div class="bg-dark-panel p-6 rounded border-t-2 border-blue-600 h-fit">
+                <h2 class="text-lg font-bold mb-4 italic uppercase">Ajustements</h2>
+                <div class="space-y-6 font-sans">
+                    <div class="border-b border-gray-800 pb-4">
+                        <label class="text-[10px] text-blue-400 font-bold uppercase">Configuration Taxe</label>
+                        <input type="text" id="tax-name-input" oninput="updateTaxConfig()" placeholder="Nom" class="w-full bg-black border border-gray-800 p-2 rounded text-white text-xs mt-1 mb-2">
+                        <input type="number" id="tax-rate-input" oninput="updateTaxConfig()" placeholder="Taux %" class="w-full bg-black border border-gray-800 p-2 rounded text-white text-xs">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-red-500 font-bold uppercase">Configuration Remise</label>
+                        <input type="number" id="discount-rate-input" oninput="updateDiscountConfig()" placeholder="Remise %" class="w-full bg-black border border-gray-800 p-2 rounded text-white text-xs mt-1">
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section id="tab-equipe" class="hidden bg-dark-panel p-6 rounded"><div class="flex justify-between mb-6"><h2 class="text-2xl text-blue-400 italic">Staff</h2><button onclick="editPerson('staff')" class="btn-action px-4 py-2 rounded text-xs uppercase">Embaucher</button></div><div id="staff-list" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div></section>
+        <section id="tab-membres" class="hidden bg-dark-panel p-6 rounded"><div class="flex justify-between mb-6"><h2 class="text-2xl text-blue-400 italic">Iron Brotherhood</h2><button onclick="editPerson('club')" class="btn-action px-4 py-2 rounded text-xs uppercase">Nouveau Frère</button></div><div id="club-list" class="grid grid-cols-1 md:grid-cols-4 gap-4"></div></section>
+        <section id="tab-galerie" class="hidden bg-dark-panel p-6 rounded"><div class="flex justify-between mb-6"><h2 class="text-2xl text-blue-400 italic">Galerie</h2><button onclick="addPhotoToGallery()" class="btn-action px-4 py-2 rounded text-xs uppercase">+ Ajouter une Photo</button></div><div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"></div></section>
+    </div>
+
+    <div id="receipt-modal" class="fixed inset-0 bg-black/90 z-[200] hidden flex items-center justify-center p-4">
+        <div class="bg-white text-black p-8 font-mono w-full max-w-sm">
+            <div id="receipt-content" class="text-center text-[12px] whitespace-pre-wrap"></div>
+            <button onclick="copyReceipt()" class="w-full bg-black text-white mt-6 py-2 uppercase font-bold text-xs">Copier</button>
+            <button onclick="document.getElementById('receipt-modal').classList.add('hidden')" class="w-full border border-black mt-2 py-2 text-[10px]">Fermer</button>
+        </div>
+    </div>
+
+    <div id="zoom-modal" class="fixed inset-0 bg-black/95 z-[300] hidden flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
+        <img id="zoomed-img" src="" class="max-w-full max-h-full rounded shadow-2xl border-2 border-blue-500">
+    </div>
+
+    <script>
+        // --- DATA & SETUP ---
+        let products = JSON.parse(localStorage.getItem('rp_prod')) || [];
+        let staff = JSON.parse(localStorage.getItem('rp_staff')) || [];
+        let club = JSON.parse(localStorage.getItem('rp_club')) || [];
+        let gallery = JSON.parse(localStorage.getItem('rp_gal')) || [];
+        let salesHistory = JSON.parse(localStorage.getItem('rp_history')) || [];
+        let money = JSON.parse(localStorage.getItem('rp_money')) || { weekly: 0, total: 0 };
+        let taxConfig = JSON.parse(localStorage.getItem('rp_tax')) || { name: "Taxe", rate: 5 };
+        let discountConfig = JSON.parse(localStorage.getItem('rp_disc')) || { rate: 10 };
+        let cart = [];
+
+        document.getElementById('tax-name-input').value = taxConfig.name;
+        document.getElementById('tax-rate-input').value = taxConfig.rate;
+        document.getElementById('discount-rate-input').value = discountConfig.rate;
+
+        function save() { 
+            localStorage.setItem('rp_prod', JSON.stringify(products)); 
+            localStorage.setItem('rp_staff', JSON.stringify(staff)); 
+            localStorage.setItem('rp_club', JSON.stringify(club)); 
+            localStorage.setItem('rp_gal', JSON.stringify(gallery)); 
+            localStorage.setItem('rp_history', JSON.stringify(salesHistory));
+            localStorage.setItem('rp_money', JSON.stringify(money)); 
+            localStorage.setItem('rp_tax', JSON.stringify(taxConfig)); 
+            localStorage.setItem('rp_disc', JSON.stringify(discountConfig)); 
+        }
+
+        // --- NAVIGATION ---
+        function showTab(name) { 
+            document.querySelectorAll('section').forEach(s => s.classList.add('hidden')); 
+            document.getElementById('tab-' + name).classList.remove('hidden'); 
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active-tab')); 
+            if(window.event && window.event.target) window.event.target.classList.add('active-tab'); 
+            render(); 
+        }
+
+        // --- EXPORT CSV ---
+        function exportWeeklyCSV() {
+            const now = new Date();
+            const day = now.getDay() || 7;
+            const monday = new Date(now);
+            monday.setDate(now.getDate() - day + 1);
+            monday.setHours(0,0,0,0);
+            const startISO = monday.toISOString().split('T')[0];
+            const weeklySales = salesHistory.filter(s => s.rawDate >= startISO);
+            if(weeklySales.length === 0) return alert("Aucune vente enregistrée cette semaine.");
+            let csvContent = "Date;Vendeur;Articles;Total\n";
+            weeklySales.forEach(s => {
+                const row = `${s.date};${s.seller};${s.items.replace(/,/g, '-')};${s.total}$`;
+                csvContent += row + "\n";
+            });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `compta_le_repere_semaine_${startISO}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- CAISSE ---
+        function addToCart(id) { const p = products.find(x=>x.id===id); if(p.stock <= 0) return alert("Rupture !"); cart.push({...p}); render(); }
+        function clearCart() { cart = []; render(); }
+        
+        function validateSale() { 
+            if(!cart.length) return; 
+            const seller = prompt("Nom du vendeur :");
+            if(!seller || seller.trim() === "") return;
+            const sub = cart.reduce((a, b) => a + b.price, 0); 
+            const tx = document.getElementById('tax-toggle').checked ? Math.round(sub*(taxConfig.rate/100)) : 0; 
+            const disc = document.getElementById('discount-toggle').checked ? Math.round(sub*(discountConfig.rate/100)) : 0; 
+            const tot = sub + tx - disc; 
+            const entry = { date: new Date().toLocaleString('fr-FR'), rawDate: new Date().toISOString().split('T')[0], seller: seller.toUpperCase(), items: cart.map(i => i.name).join(', '), total: tot };
+            salesHistory.unshift(entry);
+            cart.forEach(i => products.find(x=>x.id===i.id).stock--); 
+            money.weekly += tot; money.total += tot; cart = []; save(); render(); 
+        }
+
+        function updateTaxConfig() { taxConfig.name = document.getElementById('tax-name-input').value || "Taxe"; taxConfig.rate = parseInt(document.getElementById('tax-rate-input').value) || 0; save(); render(); }
+        function updateDiscountConfig() { discountConfig.rate = parseInt(document.getElementById('discount-rate-input').value) || 0; save(); render(); }
+
+        // --- RENDER ---
+        function render() {
+            document.getElementById('pos-grid').innerHTML = products.map(p => `<button onclick="addToCart(${p.id})" class="bg-black border border-gray-800 p-4 rounded hover:bg-blue-900 transition text-left"><div class="text-[9px] text-gray-500">STK: ${p.stock}</div><div class="font-bold text-xs uppercase">${p.name}</div><div class="text-blue-400 font-bold">${p.price}$</div></button>`).join('');
+            
+            const sub = cart.reduce((a,b)=>a+b.price,0);
+            const isT = document.getElementById('tax-toggle').checked;
+            const isD = document.getElementById('discount-toggle').checked;
+            const tA = isT && cart.length ? Math.round(sub*(taxConfig.rate/100)) : 0;
+            const dA = isD && cart.length ? Math.round(sub*(discountConfig.rate/100)) : 0;
+            let h = cart.map(i => `<div class="flex justify-between text-xs font-bold uppercase"><span>${i.name}</span><span>${i.price}$</span></div>`).join('');
+            if(tA) h += `<div class="text-[10px] text-blue-400 border-t border-gray-800 mt-2 pt-1 flex justify-between font-bold"><span>+ ${taxConfig.name}</span><span>${tA}$</span></div>`;
+            if(dA) h += `<div class="text-[10px] text-red-500 flex justify-between font-bold italic"><span>- REMISE</span><span>${dA}$</span></div>`;
+            document.getElementById('cart-items').innerHTML = h;
+            document.getElementById('cart-total').innerText = (sub+tA-dA)+"$";
+
+            const sF = document.getElementById('filter-start').value;
+            const eF = document.getElementById('filter-end').value;
+            let fS = salesHistory;
+            if(sF) fS = fS.filter(s => s.rawDate >= sF);
+            if(eF) fS = fS.filter(s => s.rawDate <= eF);
+            document.getElementById('period-total').innerText = fS.reduce((a,b)=>a+b.total,0)+"$";
+            document.getElementById('history-table').innerHTML = fS.map(s => `<tr class="border-b border-gray-800 hover:bg-white/5 transition"><td class="p-3 text-gray-500 font-mono">${s.date}</td><td class="text-blue-400 font-bold">${s.seller}</td><td class="lowercase text-gray-400">${s.items}</td><td class="text-right p-3 font-bold text-green-500">${s.total}$</td></tr>`).join('');
+
+            document.getElementById('ca-weekly').innerText = money.weekly + "$";
+            document.getElementById('ca-total').innerText = money.total + "$";
+            document.getElementById('inventory-table').innerHTML = products.map(p => `<tr class="border-b border-gray-800 p-2"><td><img src="${p.img}" class="w-8 h-8 rounded object-cover"></td><td class="font-bold">${p.name}</td><td>${p.price}$</td><td class="text-center">${p.stock}</td><td class="text-right"><button onclick="editProductPrompt(${p.id})" class="text-blue-400 mr-2">Edit</button></td></tr>`).join('');
+            
+            // ZOOMABLE SECTIONS
+            document.getElementById('staff-list').innerHTML = staff.map(p => `<div class="bg-black p-3 border border-gray-800 rounded flex items-center justify-between"><div class="flex items-center gap-2"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-8 h-8 rounded-full object-cover zoomable"><div><div class="text-[10px] font-bold neon-blue">${p.name}</div><div class="text-[8px] text-gray-500">${p.role}</div></div></div><button onclick="deletePerson('staff', ${p.id})" class="text-red-900">X</button></div>`).join('');
+            document.getElementById('club-list').innerHTML = club.map(p => `<div class="bg-gray-900 p-2 rounded text-center"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-full h-20 object-cover rounded mb-1 zoomable"><div class="text-[9px] font-bold text-blue-400">${p.name}</div><div class="text-[8px] text-gray-500">${p.role}</div></div>`).join('');
+            document.getElementById('bar-menu-grid').innerHTML = products.map(p => `<div class="bg-dark-panel rounded overflow-hidden border border-gray-800"><img src="${p.img}" onclick="zoomImg('${p.img}')" class="w-full h-32 object-cover grayscale hover:grayscale-0 transition zoomable"><div class="p-2 flex justify-between"><h3>${p.name}</h3><span class="text-blue-400">${p.price}$</span></div></div>`).join('');
+            document.getElementById('gallery-grid').innerHTML = gallery.map(p => `<div class="relative"><img src="${p.url}" onclick="zoomImg('${p.url}')" oncontextmenu="deletePhoto(${p.id});return false;" class="w-full h-32 object-cover rounded grayscale hover:grayscale-0 transition zoomable"></div>`).join('');
+        }
+
+        // --- TOOLS ---
+        function zoomImg(src) { const m = document.getElementById('zoom-modal'); const i = m.querySelector('img'); i.src = src; m.classList.remove('hidden'); }
+        function filterPreset(type) {
+            const now = new Date();
+            if(type === 'week') {
+                const day = now.getDay() || 7;
+                const mon = new Date(now); mon.setDate(now.getDate() - day + 1);
+                const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+                document.getElementById('filter-start').value = mon.toISOString().split('T')[0];
+                document.getElementById('filter-end').value = sun.toISOString().split('T')[0];
+            }
+            render();
+        }
+        function editPerson(t) { const n = prompt("Nom :"); if(!n) return; const r = prompt("Rôle :"); const im = prompt("URL Photo :"); (t==='staff'?staff:club).push({id:Date.now(), name:n, role:r, img:im||"https://i.pravatar.cc/150"}); save(); render(); }
+        function deletePerson(t,id) { if(confirm("Supprimer ?")) { if(t==='staff') staff=staff.filter(x=>x.id!==id); else club=club.filter(x=>x.id!==id); save(); render(); }}
+        function editProductPrompt(id=null) { const p = id ? products.find(x=>x.id===id) : {name:"",price:0,img:""}; const n = prompt("Nom :", p.name); if(!n) return; const pr = parseInt(prompt("Prix :", p.price))||0; const im = prompt("URL :", p.img); if(id) Object.assign(products.find(x=>x.id===id), {name:n, price:pr, img:im}); else products.push({id:Date.now(), name:n, price:pr, stock:0, img:im}); save(); render(); }
+        function resetMoney(t) { if(confirm("Reset ?")) { money[t]=0; save(); render(); } }
+        function clearHistory() { if(confirm("Vider l'historique ?")) { salesHistory = []; save(); render(); } }
+        function generateReceipt() { const tot = document.getElementById('cart-total').innerText; const t = document.getElementById('tax-toggle').checked; const d = document.getElementById('discount-toggle').checked; let c = `LE REPÈRE\n\n${cart.map(i=>i.name.toUpperCase()).join('\n')}`; if(t) c+=`\n+ TAXE`; if(d) c+=`\n- REMISE`; c+=`\n\nTOTAL: ${tot}\n\nRide or Die.`; document.getElementById('receipt-content').innerText = c; document.getElementById('receipt-modal').classList.remove('hidden'); }
+        function copyReceipt() { navigator.clipboard.writeText(document.getElementById('receipt-content').innerText); alert("Copié !"); }
+        
+        // GALERIE SPECIFIQUE
+        function addPhotoToGallery() { const url = prompt("URL de la photo :"); if(url) { gallery.push({id:Date.now(), url:url}); save(); render(); } }
+        function deletePhoto(id) { if(confirm("Supprimer cette photo de la galerie ?")) { gallery = gallery.filter(p => p.id !== id); save(); render(); } }
+
+        render();
+    </script>
+</body>
+</html>
